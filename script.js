@@ -28,14 +28,20 @@ document.addEventListener('DOMContentLoaded', () => {
         currentColor = e.target.value;
         setActiveTool('pencil');
     });
-           document.getElementById('savebtn').addEventListener('click', saveDrawing);
+    document.getElementById('savebtn').addEventListener('click', saveDrawing);
     document.getElementById('brushSize').addEventListener('input', (e) => {
         brushSize = e.target.value; 
     });
 
+    // Mouse event listeners
     canvas.addEventListener('mousedown', startDrawing);
     canvas.addEventListener('mouseup', stopDrawing);
     canvas.addEventListener('mousemove', draw);
+
+    // Touch event listeners
+    canvas.addEventListener('touchstart', startDrawing);
+    canvas.addEventListener('touchend', stopDrawing);
+    canvas.addEventListener('touchmove', draw);
 
     setActiveTool('pencil');
 });
@@ -57,14 +63,15 @@ function clearCanvas() {
 }
 
 function draw(e) {
+    e.preventDefault(); 
     if (!drawing) return;
-    const mousepos = getMousePos(e);
-    paths[paths.length - 1].points.push(mousepos);
+    const pos = getMouseOrTouchPos(e);
+    paths[paths.length - 1].points.push(pos);
     redraw();
 }
 
 function redraw() {
-    ctx.clearRect(0, 0, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     paths.forEach(drawpath);
 }
 
@@ -77,25 +84,32 @@ function drawpath(path) {
     }
     ctx.strokeStyle = path.color;
     ctx.lineWidth = path.width;
-
     ctx.stroke();
 }
 
-function getMousePos(evt) {
+function getMouseOrTouchPos(evt) {
     const rect = canvas.getBoundingClientRect();
+    let x, y;
 
-    const x = (evt.clientX - rect.left) * (canvas.width / rect.width);
-    const y = (evt.clientY - rect.top) * (canvas.height / rect.height);
+    if (evt.clientX !== undefined && evt.clientY !== undefined) {
+        x = (evt.clientX - rect.left) * (canvas.width / rect.width);
+        y = (evt.clientY - rect.top) * (canvas.height / rect.height);
+    } else if (evt.touches[0]) {
+        const touch = evt.touches[0];
+        x = (touch.clientX - rect.left) * (canvas.width / rect.width);
+        y = (touch.clientY - rect.top) * (canvas.height / rect.height);
+    }
 
     return { x, y };
 }
 
 function startDrawing(e) {
+    e.preventDefault();
     drawing = true;
-    const mousepos = getMousePos(e);
+    const pos = getMouseOrTouchPos(e);
     paths.push({
         color: currentTool === 'erasor' ? 'white' : currentColor,
-        points: [mousepos],
+        points: [pos],
         width: brushSize
     });
     redostack = [];
@@ -113,16 +127,15 @@ function redoLastAction() {
         paths.push(redostack.pop());
         redraw();
     }
-
 }
 
 function saveDrawing() {
-     const previousBackgroundColor = canvas.style.backgroundColor; 
-     canvas.style.backgroundColor = 'white';
-     const prevFillStyle = ctx.fillStyle;
-      ctx.fillStyle = 'white';
-     ctx.fillRect(0, 0, canvas.width, canvas.height);
-     paths.forEach(drawpath);
+    const previousBackgroundColor = canvas.style.backgroundColor; 
+    canvas.style.backgroundColor = 'white';
+    const prevFillStyle = ctx.fillStyle;
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    paths.forEach(drawpath);
     ctx.fillStyle = prevFillStyle;
     const dataURL = canvas.toDataURL(); 
     const a = document.createElement('a'); 
